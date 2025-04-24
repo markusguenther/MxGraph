@@ -23,6 +23,7 @@ class DiagramNodeHandler
      */
     protected $contentRepositoryRegistry;
 
+    // TODO: AFAIK Signals for nodes were removed with Neos 9
     /**
      * Signals that the property of a node was changed.
      *

@@ -56,6 +56,7 @@ class DiagramIdentifierDataSource extends AbstractDataSource
         $relatedCount = count($this->diagramIdentifierSearchService->findRelatedDiagramsWithIdentifierExcludingOwn($diagramIdentifier, $node));
         $label = $diagramIdentifier;
         if ($relatedCount > 0) {
+            // TODO: this shows "2 Usages" when it's actually 1
             $label .= $this->translator->translateById('diagramIdentifierUsageLabel', [$relatedCount+1], null, null, 'Main', 'Sandstorm.MxGraph');
         }
         return $label;

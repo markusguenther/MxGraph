@@ -1,16 +1,17 @@
-
 'Sandstorm.MxGraph:Diagram':
   superTypes:
     'Neos.Neos:Content': true
     'Neos.NodeTypes.BaseMixins:ContentImageMixin': true
   options:
     nodeCreationHandlers:
-      - nodeCreationHandler: Sandstorm\MxGraph\DiagramCreationHandler
+      mxGraph:
+        factoryClassName: Sandstorm\MxGraph\Factory\DiagramCreationHandlerFactory
   ui:
     label: Diagram
     icon: icon-picture
     position: 300
   properties:
+    # TODO: The Neos 9 upgrade will be a breaking change, so let's remove all deprecations introduced with 3.x
     # DEPRECATED with version 3
     image:
       ui:
@@ -40,3 +41,4 @@
             dataSourceDisableCaching: true
         help:
           message: i18n
+        showInCreationDialog: true

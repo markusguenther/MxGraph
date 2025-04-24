@@ -11,8 +11,15 @@ class DiagramCreationHandler implements NodeCreationHandlerInterface
 {
     public function handle(NodeCreationCommands $commands, NodeCreationElements $elements): NodeCreationCommands
     {
+        $diagramIdentifier = $elements->has('diagramIdentifier') ? $elements->get('diagramIdentifier') : $this->getDefaultDiagramIdentifier();
+
         return $commands->withInitialPropertyValues(PropertyValuesToWrite::fromArray([
-            'diagramIdentifier' => 'Diagram ' . date('Y-m-d H:i'),
+            'diagramIdentifier' => $diagramIdentifier
         ]));
+    }
+
+    private function getDefaultDiagramIdentifier(): string
+    {
+        return 'Diagram ' . date('Y-m-d H:i');
     }
 }

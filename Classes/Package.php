@@ -15,6 +15,7 @@ class Package extends BasePackage
     {
         $dispatcher = $bootstrap->getSignalSlotDispatcher();
 
+        // TODO: I've read, that Node Signals were removed
         $dispatcher->connect(Node::class, 'nodePropertyChanged', DiagramNodeHandler::class, 'nodePropertyChanged');
     }
 }

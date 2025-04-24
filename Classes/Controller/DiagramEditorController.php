@@ -121,6 +121,7 @@ class DiagramEditorController extends ActionController
     }
 
     /**
+     * TODO: unused?
      */
     public function offlineLocalDiagramsNetAction()
     {
@@ -145,6 +146,7 @@ class DiagramEditorController extends ActionController
                 $node->originDimensionSpacePoint,
                 PropertyValuesToWrite::fromArray(['diagramSourceAutosaved' => $xml]),
             ));
+            // TODO: If not supported, what does the code abode do?
             throw new \RuntimeException("TODO - autosave not supported right now.");
         }
 
@@ -155,22 +157,29 @@ class DiagramEditorController extends ActionController
 
         $diagramIdentifier = $node->getProperty('diagramIdentifier');
         if (!empty($diagramIdentifier)) {
-            // also update related diagrams
+            // update related diagrams
             foreach ($this->diagramIdentifierSearchService->findRelatedDiagramsWithIdentifierExcludingOwn($diagramIdentifier, $node) as $relatedDiagramNode) {
-                $propertyValuesToWrite = $propertyValuesToWrite->merge(PropertyValuesToWrite::fromArray([
-                    'diagramSource' => $xml,
-                    'diagramSvgText' => $svg,
-                ]));
+                $contentRepository->handle(SetNodeProperties::create(
+                    $relatedDiagramNode->workspaceName,
+                    $relatedDiagramNode->aggregateId,
+                    $relatedDiagramNode->originDimensionSpacePoint,
+                    $propertyValuesToWrite->merge(PropertyValuesToWrite::fromArray([
+                        'diagramSource' => $xml,
+                        'diagramSvgText' => $svg,
+                    ])
+                )));
             }
         }
 
         // BEGIN DEPRECATION since version 3.0.0
+        // TODO: Because the Neos 9 compat version will be breaking we can get rid of deprecations introduced in 3.x
         $persistentResource = $this->resourceManager->importResourceFromContent($svg, 'diagram.svg');
 
         $image = $node->getProperty('image');
         if ($image instanceof Asset) {
             // BUG: this also changes the live workspace - nasty. But if we remove it, we get 1000s of assets
             // cluttering the Media UI.
+            // TODO: What could be a fix? Remove all assets that are not live or the latest version in a workspace?
             $image->setResource($persistentResource);
         } else {
             $image = new Image($persistentResource);
