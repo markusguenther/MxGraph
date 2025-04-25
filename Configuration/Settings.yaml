@@ -93,4 +93,4 @@ Neos:
       'default':
         commandHooks:
           'Sandstorm.MxGraph:Diagram':
-            factoryObjectName: Sandstorm\MxGraph\CommandHook\DiagramCommandHookFactory
+            factoryObjectName: Sandstorm\MxGraph\ContentRepository\CommandHook\DiagramCommandHookFactory
