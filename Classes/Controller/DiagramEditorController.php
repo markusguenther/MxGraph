@@ -9,62 +9,35 @@ use Neos\ContentRepositoryRegistry\ContentRepositoryRegistry;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\ResourceManagement\ResourceManager;
-use Neos\Media\Domain\Model\Asset;
-use Neos\Media\Domain\Model\Image;
 use Neos\Neos\Domain\Service\UserService;
 use Sandstorm\MxGraph\DiagramIdentifierSearchService;
 
 class DiagramEditorController extends ActionController
 {
-
-    /**
-     * @Flow\Inject
-     * @var ResourceManager
-     */
-    protected $resourceManager;
-
-    /**
-     * @Flow\Inject
-     * @var UserService
-     */
-    protected $userService;
-
-    /**
-     * @Flow\Inject
-     * @var DiagramIdentifierSearchService
-     */
-    protected $diagramIdentifierSearchService;
-
-    /**
-     * @Flow\Inject
-     * @var ContentRepositoryRegistry
-     */
-    protected $contentRepositoryRegistry;
-
-    /**
-     * @Flow\InjectConfiguration(path="drawioEmbedUrl")
-     * @var string
-     */
-    protected $drawioEmbedUrl;
     const LOCAL_DRAWIO_EMBED_URL = 'LOCAL';
 
-    /**
-     * @Flow\InjectConfiguration(path="drawioEmbedParameters")
-     * @var array
-     */
-    protected $drawioEmbedParameters;
+    #[Flow\Inject]
+    protected ResourceManager $resourceManager;
 
-    /**
-     * @Flow\InjectConfiguration(path="drawioConfiguration")
-     * @var array
-     */
-    protected $drawioConfiguration;
+    #[Flow\Inject]
+    protected UserService $userService;
 
+    #[Flow\Inject]
+    protected DiagramIdentifierSearchService $diagramIdentifierSearchService;
 
-    /**
-     * @param Node $diagramNode
-     */
-    public function indexAction(Node $diagramNode)
+    #[Flow\Inject]
+    protected ContentRepositoryRegistry $contentRepositoryRegistry;
+
+    #[Flow\InjectConfiguration(path: 'drawioEmbedUrl')]
+    protected string $drawioEmbedUrl;
+
+    #[Flow\InjectConfiguration(path: 'drawioEmbedParameters')]
+    protected array $drawioEmbedParameters;
+
+    #[Flow\InjectConfiguration(path: 'drawioConfiguration')]
+    protected array|null $drawioConfiguration;
+
+    public function indexAction(Node $diagramNode): void
     {
         $drawioEmbedUrlWithParameters = $this->drawioEmbedUrl;
         if ($drawioEmbedUrlWithParameters === self::LOCAL_DRAWIO_EMBED_URL) {
@@ -121,20 +94,16 @@ class DiagramEditorController extends ActionController
     }
 
     /**
-     * TODO: unused?
+     * This renders Resources/Private/Templates/DiagramEditor/OfflineLocalDiagramsNet.html (see indexAction)
      */
     public function offlineLocalDiagramsNetAction()
     {
     }
 
-
     /**
-     * @param Node $node
-     * @param string $xml
-     * @param string $svg
      * @Flow\SkipCsrfProtection
      */
-    public function saveAction(Node $node, $xml, $svg)
+    public function saveAction(Node $node, string $xml, string $svg): string
     {
         $contentRepository = $this->contentRepositoryRegistry->get($node->contentRepositoryId);
 
@@ -146,7 +115,7 @@ class DiagramEditorController extends ActionController
                 $node->originDimensionSpacePoint,
                 PropertyValuesToWrite::fromArray(['diagramSourceAutosaved' => $xml]),
             ));
-            // TODO: If not supported, what does the code abode do?
+            // TODO: If not supported, what does the code above do?
             throw new \RuntimeException("TODO - autosave not supported right now.");
         }
 
@@ -171,21 +140,6 @@ class DiagramEditorController extends ActionController
             }
         }
 
-        // BEGIN DEPRECATION since version 3.0.0
-        // TODO: Because the Neos 9 compat version will be breaking we can get rid of deprecations introduced in 3.x
-        $persistentResource = $this->resourceManager->importResourceFromContent($svg, 'diagram.svg');
-
-        $image = $node->getProperty('image');
-        if ($image instanceof Asset) {
-            // BUG: this also changes the live workspace - nasty. But if we remove it, we get 1000s of assets
-            // cluttering the Media UI.
-            // TODO: What could be a fix? Remove all assets that are not live or the latest version in a workspace?
-            $image->setResource($persistentResource);
-        } else {
-            $image = new Image($persistentResource);
-        }
-
-        $propertyValuesToWrite = $propertyValuesToWrite->withValue('image', $image);
         $contentRepository->handle(SetNodeProperties::create(
             $node->workspaceName,
             $node->aggregateId,

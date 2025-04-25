@@ -10,22 +10,15 @@ use Sandstorm\LazyDataSource\LazyDataSourceTrait;
 
 class DiagramIdentifierDataSource extends AbstractDataSource
 {
-
     use LazyDataSourceTrait;
 
-    static protected $identifier = 'drawio-diagram-identifier';
+    protected static $identifier = 'drawio-diagram-identifier';
 
-    /**
-     * @Flow\Inject
-     * @var Translator
-     */
-    protected $translator;
+    #[Flow\Inject]
+    protected Translator $translator;
 
-    /**
-     * @Flow\Inject
-     * @var DiagramIdentifierSearchService
-     */
-    protected $diagramIdentifierSearchService;
+    #[Flow\Inject]
+    protected DiagramIdentifierSearchService $diagramIdentifierSearchService;
 
     protected function getDataForIdentifiers(array $identifiers, Node $node = null, array $arguments = [])
     {

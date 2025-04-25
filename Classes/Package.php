@@ -5,6 +5,8 @@ use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
 use Neos\Flow\Core\Bootstrap;
 use Neos\Flow\Package\Package as BasePackage;
 
+// TODO: Is this always needed?
+
 class Package extends BasePackage
 {
     /**
@@ -13,9 +15,5 @@ class Package extends BasePackage
      */
     public function boot(Bootstrap $bootstrap)
     {
-        $dispatcher = $bootstrap->getSignalSlotDispatcher();
-
-        // TODO: I've read, that Node Signals were removed
-        $dispatcher->connect(Node::class, 'nodePropertyChanged', DiagramNodeHandler::class, 'nodePropertyChanged');
     }
 }

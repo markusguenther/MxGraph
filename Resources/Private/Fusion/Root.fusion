@@ -1,23 +1,75 @@
-prototype(Sandstorm.MxGraph:Diagram) < prototype(Neos.Neos:Content) {
-    // BACKWARDS COMPATIBILITY: to get the old (2.x) behavior back, set to false.
-    renderAsInlineSvg = true
+prototype(Sandstorm.MxGraph:Diagram) < prototype(Neos.Neos:ContentComponent) {
+  renderer = Sandstorm.MxGraph:DiagramComponent {
+    diagram = Neos.Fusion:Case {
+      hasDiagram {
+        condition = ${q(node).property('diagramSvgText') != null}
+        renderer = ${q(node).property('diagramSvgText')}
+      }
 
-    // INTERNAL
-    templatePath = 'resource://Sandstorm.MxGraph/Private/Templates/Image/Image.html'
+      inBackend {
+        condition = ${renderingMode.isEdit}
+        renderer = afx`
+          <img
+            src={StaticResource.uri('Neos.Neos', 'Public/Images/dummy-image.svg')}
+          />
+        `
+      }
 
-    maximumWidth = 2560
-    width = null
-    maximumHeight = 2560
-    height = null
-    # "typo3-alignment-" deprecated since 3.3, removed in 4.0
-    imageClassName = ${q(node).property('alignment') ? ('typo3-neos-alignment-' + q(node).property('alignment') + ' neos-alignment-' + q(node).property('alignment')) : ''}
-    allowCropping = false
-    allowUpScaling = false
+      default {
+        condition = ${true}
+        renderer = ''
+      }
+    }
+
+    link = ${q(node).property('link')}
     link.@process.convertUris = Neos.Neos:ConvertUris {
       forceConversion = true
     }
-    title = ${q(node).property('title') ? q(node).property('title') : q(node).property('image').title}
-    image = ${q(node).property('image')}
-    diagramSvgText = ${q(node).property('diagramSvgText')}
-    caption = ${String.trim(String.stripTags(q(node).property('caption'))) ? q(node).property('caption') : q(node).property('image').caption}
+
+    title = ${q(node).property('title')}
+    alternativeText = ${q(node).property('alternativeText')}
+    alignment = ${q(node).property('alignment')}
+
+    caption = Neos.Neos:Editable {
+      property = 'caption'
+    }
+
+    inEditMode = ${renderingMode.isEdit}
+  }
+}
+
+prototype(Sandstorm.MxGraph:DiagramComponent) < prototype(Neos.Fusion:Component) {
+  diagram = ''
+  title = ''
+  link = ''
+  alternativeText = ''
+  # TODO: alignment is not implemented yet
+  alignment = ''
+  caption = ''
+  inEditMode = false
+
+  @private {
+    diagramWrappedWithLink = Neos.Fusion:Case {
+      hasLink {
+        condition = ${props.link != '' && !props.inEditMode}
+        renderer = afx`
+          <a href={props.link} target="_blank" rel="noopener noreferrer">
+            {props.diagram}
+          </a>
+        `
+      }
+
+      default {
+        condition = ${true}
+        renderer = ${props.diagram}
+      }
+    }
+  }
+
+  renderer = afx`
+    <figure title={props.title} aria-label={props.alternativeText}>
+      {private.diagramWrappedWithLink}
+      <figcaption @if.hasCaption={props.caption != ''}>{props.caption}</figcaption>
+    </figure>
+  `
 }

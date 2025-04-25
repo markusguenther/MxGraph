@@ -13,6 +13,8 @@ class DiagramCreationHandler implements NodeCreationHandlerInterface
     {
         $diagramIdentifier = $elements->has('diagramIdentifier') ? $elements->get('diagramIdentifier') : $this->getDefaultDiagramIdentifier();
 
+        // TODO: set initial properties from the latest diagram with the same identifier (if it exists)
+
         return $commands->withInitialPropertyValues(PropertyValuesToWrite::fromArray([
             'diagramIdentifier' => $diagramIdentifier
         ]));

@@ -14,20 +14,13 @@ use Neos\ContentRepository\Core\SharedModel\Node\PropertyName;
 use Neos\ContentRepositoryRegistry\ContentRepositoryRegistry;
 use Neos\Neos\Domain\Service\NodeTypeNameFactory;
 
-/**
- * @Flow\Scope("singleton")
- */
+#[Flow\Scope('singleton')]
 class DiagramIdentifierSearchService
 {
-    /**
-     * @Flow\Inject
-     * @var ContentRepositoryRegistry
-     */
-    protected $contentRepositoryRegistry;
+    #[Flow\Inject]
+    protected ContentRepositoryRegistry $contentRepositoryRegistry;
 
     /**
-     * @param string $searchTerm
-     * @param Node $node
      * @return string[]
      */
     public function findInIdentifier(string $searchTerm, Node $node): array
@@ -65,7 +58,6 @@ class DiagramIdentifierSearchService
     }
 
     /**
-     * @param string $diagramIdentifier
      * @return Node[]
      */
     public function findRelatedDiagramsWithIdentifierExcludingOwn(string $diagramIdentifier, Node $contextNode): array
@@ -108,11 +100,6 @@ class DiagramIdentifierSearchService
         return $results;
     }
 
-    /**
-     * @param string $diagramIdentifier
-     * @param Node $contextNode
-     * @return Node|null
-     */
     public function findMostRecentDiagramWithIdentifierExcludingOwn(string $diagramIdentifier, Node $contextNode): ?Node
     {
         $relatedDiagramNodes = $this->findRelatedDiagramsWithIdentifierExcludingOwn($diagramIdentifier, $contextNode);

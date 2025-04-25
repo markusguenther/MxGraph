@@ -11,17 +11,11 @@ use Neos\Flow\Annotations as Flow;
 
 class DiagramNodeHandler
 {
-    /**
-     * @Flow\Inject
-     * @var DiagramIdentifierSearchService
-     */
-    protected $diagramIdentifierSearchService;
+    #[Flow\Inject]
+    protected DiagramIdentifierSearchService $diagramIdentifierSearchService;
 
-    /**
-     * @Flow\Inject
-     * @var ContentRepositoryRegistry
-     */
-    protected $contentRepositoryRegistry;
+    #[Flow\Inject]
+    protected ContentRepositoryRegistry $contentRepositoryRegistry;
 
     // TODO: AFAIK Signals for nodes were removed with Neos 9
     /**
@@ -62,7 +56,6 @@ class DiagramNodeHandler
                 PropertyValuesToWrite::fromArray([
                     'diagramSource' => $sourceDiagramNode->getProperty('diagramSource'),
                     'diagramSvgText' => $sourceDiagramNode->getProperty('diagramSvgText'),
-                    'image' => $sourceDiagramNode->getProperty('image'),
                 ]),
             ));
         }
