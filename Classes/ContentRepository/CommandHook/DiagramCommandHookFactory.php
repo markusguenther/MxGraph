@@ -5,11 +5,13 @@ namespace Sandstorm\MxGraph\ContentRepository\CommandHook;
 use Neos\ContentRepository\Core\CommandHandler\CommandHookInterface;
 use Neos\ContentRepository\Core\Factory\CommandHookFactoryInterface;
 use Neos\ContentRepository\Core\Factory\CommandHooksFactoryDependencies;
-use Psr\Log\LoggerInterface;
+use Sandstorm\MxGraph\ContentRepository\DiagramContentRepositoryService;
 
 class DiagramCommandHookFactory implements CommandHookFactoryInterface
 {
-    public function __construct(protected LoggerInterface $logger)
+    public function __construct(
+        protected DiagramContentRepositoryService $diagramContentRepositoryService,
+    )
     {
     }
 
@@ -17,7 +19,7 @@ class DiagramCommandHookFactory implements CommandHookFactoryInterface
     {
         return new DiagramCommandHook(
             $commandHooksFactoryDependencies->contentGraphReadModel,
-            $this->logger,
+            $this->diagramContentRepositoryService,
         );
     }
 }

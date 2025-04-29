@@ -10,6 +10,9 @@ use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\CountDescendantNo
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\FindClosestNodeFilter;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\FindDescendantNodesFilter;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\NodeType\NodeTypeCriteria;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\OrderingDirection;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\OrderingField;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\TimestampField;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\PropertyValueContains;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\PropertyValueEquals;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
@@ -37,12 +40,12 @@ class DiagramContentRepositoryService
     {
         $contentRepository = $this->contentRepositoryRegistry->get($contextNode->contentRepositoryId);
         $subgraph = $contentRepository->getContentSubgraph(
-            $contextNode->workspaceName,
-            $contextNode->dimensionSpacePoint
+            workspaceName: $contextNode->workspaceName,
+            dimensionSpacePoint: $contextNode->dimensionSpacePoint
         );
         $siteNode = $subgraph->findClosestNode(
-            $contextNode->aggregateId,
-            FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
+            entryNodeAggregateId: $contextNode->aggregateId,
+            filter: FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
         );
 
         return $subgraph->findDescendantNodes(
@@ -65,12 +68,12 @@ class DiagramContentRepositoryService
     {
         $contentRepository = $this->contentRepositoryRegistry->get($contextNode->contentRepositoryId);
         $subgraph = $contentRepository->getContentSubgraph(
-            $contextNode->workspaceName,
-            $contextNode->dimensionSpacePoint
+            workspaceName: $contextNode->workspaceName,
+            dimensionSpacePoint: $contextNode->dimensionSpacePoint
         );
         $siteNode = $subgraph->findClosestNode(
-            $contextNode->aggregateId,
-            FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
+            entryNodeAggregateId: $contextNode->aggregateId,
+            filter: FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
         );
 
         return $subgraph->countDescendantNodes(
@@ -93,10 +96,9 @@ class DiagramContentRepositoryService
     {
         $contentRepository = $this->contentRepositoryRegistry->get($sourceNode->contentRepositoryId);
         $subgraph = $contentRepository->getContentSubgraph(
-            $sourceNode->workspaceName,
-            $sourceNode->dimensionSpacePoint
+            workspaceName: $sourceNode->workspaceName,
+            dimensionSpacePoint: $sourceNode->dimensionSpacePoint
         );
-
         $siteNode = $subgraph->findClosestNode(
             entryNodeAggregateId: $sourceNode->aggregateId,
             filter: FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
@@ -136,5 +138,74 @@ class DiagramContentRepositoryService
                 propertyValues: $propertiesToWrite,
             ));
         }
+    }
+
+    /**
+     * @throws AccessDenied
+     */
+    public function applyLastestDiagramDataOfDiagramIdentifierToNode(string $diagramIdentifier, Node $node): void
+    {
+        $this->logger->debug("DiagramCommandHook::handleDiagramIdentifierChange: Diagram node '$node->aggregateId' changed property nodeIdentifier to '$diagramIdentifier'");
+
+        $diagramNodeWithLatestChange = $this->getLatestDiagramNodeByDiagramIdentifier($diagramIdentifier, $node);
+
+        if ($diagramNodeWithLatestChange === null) {
+            return;
+        }
+
+        $diagramSourcePropertyName = MxGraphConstants::getDiagramSourcePropertyName();
+        $diagramSvgTextPropertyName = MxGraphConstants::getDiagramSvgTextPropertyName();
+        $contentRepository = $this->contentRepositoryRegistry->get($node->contentRepositoryId);
+
+        $contentRepository->handle(SetNodeProperties::create(
+            workspaceName: $node->workspaceName,
+            nodeAggregateId: $node->aggregateId,
+            originDimensionSpacePoint: $node->originDimensionSpacePoint,
+            propertyValues: PropertyValuesToWrite::fromArray([
+                $diagramSourcePropertyName->value => $diagramNodeWithLatestChange->getProperty($diagramSourcePropertyName),
+                $diagramSvgTextPropertyName->value => $diagramNodeWithLatestChange->getProperty($diagramSvgTextPropertyName),
+            ]),
+        ));
+    }
+
+    public function getLatestDiagramNodeByDiagramIdentifier(string $diagramIdentifier, Node $contextNode): Node|null
+    {
+        $contentRepository = $this->contentRepositoryRegistry->get($contextNode->contentRepositoryId);
+        $subgraph = $contentRepository->getcontentsubgraph(
+            workspaceName: $contextNode->workspaceName,
+            dimensionSpacePoint: $contextNode->dimensionSpacePoint
+        );
+        $siteNode = $subgraph->findClosestNode(
+            entryNodeAggregateId: $contextNode->aggregateId,
+            filter: FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
+        );
+
+        // get diagram with the latest changes
+        $diagramNodesOrdered = $subgraph->findDescendantNodes(
+            entryNodeAggregateId: $siteNode->aggregateId,
+            filter: FindDescendantNodesFilter::create(
+                nodeTypes: NodeTypeCriteria::createWithAllowedNodeTypeNames(NodeTypeNames::with(MxGraphConstants::getNodeTypeName())),
+                propertyValue: PropertyValueEquals::create(
+                    propertyName: MxGraphConstants::getDiagramIdentifierPropertyName(),
+                    value: $diagramIdentifier,
+                    caseSensitive: true,
+                ),
+                ordering: [
+                    OrderingField::byTimestampField(TimestampField::LAST_MODIFIED, OrderingDirection::DESCENDING),
+                    OrderingField::byTimestampField(TimestampField::CREATED, OrderingDirection::DESCENDING),
+                ],
+            ),
+        );
+
+        // get first node that is not the node itself
+        foreach ($diagramNodesOrdered as $diagramNode) {
+            if ($diagramNode->equals($contextNode)) {
+                continue;
+            }
+
+            return $diagramNode;
+        }
+
+        return null;
     }
 }

@@ -42,7 +42,6 @@
             dataSourceDisableCaching: true
         help:
           message: i18n
-        showInCreationDialog: true
 
     # because the diagram is basically an image, we want secondary properties for a11y, etc.
     alternativeText:

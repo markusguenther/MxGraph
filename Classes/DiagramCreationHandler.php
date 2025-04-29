@@ -11,17 +11,8 @@ class DiagramCreationHandler implements NodeCreationHandlerInterface
 {
     public function handle(NodeCreationCommands $commands, NodeCreationElements $elements): NodeCreationCommands
     {
-        $diagramIdentifier = $elements->has('diagramIdentifier') ? $elements->get('diagramIdentifier') : $this->getDefaultDiagramIdentifier();
-
-        // TODO: set initial properties from the latest diagram with the same identifier (if it exists)
-
         return $commands->withInitialPropertyValues(PropertyValuesToWrite::fromArray([
-            'diagramIdentifier' => $diagramIdentifier
+            MxGraphConstants::getDiagramIdentifierPropertyName()->value => 'Diagram ' . date('Y-m-d H:i')
         ]));
-    }
-
-    private function getDefaultDiagramIdentifier(): string
-    {
-        return 'Diagram ' . date('Y-m-d H:i');
     }
 }
