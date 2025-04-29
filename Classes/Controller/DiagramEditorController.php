@@ -1,34 +1,23 @@
 <?php
 namespace Sandstorm\MxGraph\Controller;
 
-use Neos\ContentRepository\Core\Feature\NodeModification\Command\SetNodeProperties;
-use Neos\ContentRepository\Core\Feature\NodeModification\Dto\PropertyValuesToWrite;
 use Neos\ContentRepository\Core\Feature\Security\Exception\AccessDenied;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
 use Neos\ContentRepository\Core\SharedModel\Node\NodeAddress;
-use Neos\ContentRepository\Core\SharedModel\Node\PropertyName;
-use Neos\ContentRepositoryRegistry\ContentRepositoryRegistry;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
-use Neos\Flow\ResourceManagement\ResourceManager;
 use Neos\Neos\Domain\Service\UserService;
-use Sandstorm\MxGraph\DiagramIdentifierSearchService;
+use Sandstorm\MxGraph\ContentRepository\DiagramContentRepositoryService;
 
 class DiagramEditorController extends ActionController
 {
     const LOCAL_DRAWIO_EMBED_URL = 'LOCAL';
 
     #[Flow\Inject]
-    protected ResourceManager $resourceManager;
-
-    #[Flow\Inject]
     protected UserService $userService;
 
     #[Flow\Inject]
-    protected DiagramIdentifierSearchService $diagramIdentifierSearchService;
-
-    #[Flow\Inject]
-    protected ContentRepositoryRegistry $contentRepositoryRegistry;
+    protected DiagramContentRepositoryService $diagramContentRepositoryService;
 
     #[Flow\InjectConfiguration(path: 'drawioEmbedUrl')]
     protected string $drawioEmbedUrl;
@@ -108,22 +97,12 @@ class DiagramEditorController extends ActionController
      */
     public function saveAction(Node $node, string $xml, string $svg): string
     {
-        $contentRepository = $this->contentRepositoryRegistry->get($node->contentRepositoryId);
-
         if (empty($svg)) {
             // XML without SVG -> autosaved - not supported right now.
             throw new \RuntimeException("DiagramEditorController::saveAction: autosave not supported right now.");
         }
 
-        $contentRepository->handle(SetNodeProperties::create(
-            $node->workspaceName,
-            $node->aggregateId,
-            $node->originDimensionSpacePoint,
-            PropertyValuesToWrite::fromArray([
-                'diagramSource' => $xml,
-                'diagramSvgText' => $svg,
-            ]),
-        ));
+        $this->diagramContentRepositoryService->applyDataToDiagramNodeAndToRelatedNodes($node, $xml, $svg);
 
         return 'OK';
     }
