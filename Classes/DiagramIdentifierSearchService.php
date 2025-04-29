@@ -2,11 +2,11 @@
 
 namespace Sandstorm\MxGraph;
 
-
+use Neos\ContentRepository\Core\Feature\Security\Exception\AccessDenied;
+use Neos\ContentRepository\Core\NodeType\NodeTypeName;
 use Neos\Flow\Annotations as Flow;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\FindClosestNodeFilter;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\FindDescendantNodesFilter;
-use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\NodeType\NodeTypeCriteria;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\PropertyValueContains;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
 use Neos\ContentRepository\Core\Projection\ContentGraph\VisibilityConstraints;
@@ -22,9 +22,14 @@ class DiagramIdentifierSearchService
 
     /**
      * @return string[]
+     * @throws AccessDenied
      */
     public function findInIdentifier(string $searchTerm, Node $node): array
     {
+        $searchTerm = trim($searchTerm);
+        $diagramIdentifierPropertyName = PropertyName::fromString('diagramIdentifier');
+        $diagramNodeTypeName = NodeTypeName::fromString('Sandstorm.MxGraph:Diagram');
+
         $results = [];
 
         $contentRepository = $this->contentRepositoryRegistry->get($node->contentRepositoryId);
@@ -37,19 +42,19 @@ class DiagramIdentifierSearchService
             FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
         );
 
-        $propertyConstraint = PropertyValueContains::create(PropertyName::fromString('diagramIdentifier'), $searchTerm, false);
         $possibleResults = $subgraph->findDescendantNodes(
             $siteNode->aggregateId,
             FindDescendantNodesFilter::create(
-                nodeTypes: 'Sandstorm.MxGraph:Diagram',
-                propertyValue: $propertyConstraint
+                nodeTypes: $diagramNodeTypeName,
+                propertyValue: PropertyValueContains::create($diagramIdentifierPropertyName, $searchTerm, false),
             ),
         );
 
         foreach ($possibleResults as $possibleResult) {
             assert($possibleResult instanceof Node);
-            $possibleDiagramIdentifier = $possibleResult->getProperty('diagramIdentifier');
+            $possibleDiagramIdentifier = $possibleResult->getProperty($diagramIdentifierPropertyName);
             if (!isset($results[$possibleDiagramIdentifier])) {
+                assert(is_string($possibleDiagramIdentifier));
                 $results[$possibleDiagramIdentifier] = $possibleDiagramIdentifier;
             }
         }
@@ -59,9 +64,12 @@ class DiagramIdentifierSearchService
 
     /**
      * @return Node[]
+     * @throws AccessDenied
      */
     public function findRelatedDiagramsWithIdentifierExcludingOwn(string $diagramIdentifier, Node $contextNode): array
     {
+        $diagramIdentifierPropertyName = PropertyName::fromString('diagramIdentifier');
+        $diagramNodeTypeName = NodeTypeName::fromString('Sandstorm.MxGraph:Diagram');
         $results = [];
 
         $contentRepository = $this->contentRepositoryRegistry->get($contextNode->contentRepositoryId);
@@ -74,47 +82,24 @@ class DiagramIdentifierSearchService
             FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
         );
 
-        $propertyConstraint = PropertyValueContains::create(PropertyName::fromString('diagramIdentifier'), $diagramIdentifier, false);
+        $propertyConstraint = PropertyValueContains::create($diagramIdentifierPropertyName, $diagramIdentifier, true);
         $possibleResults = $subgraph->findDescendantNodes(
             $siteNode->aggregateId,
             FindDescendantNodesFilter::create(
-                nodeTypes: NodeTypeCriteria::fromFilterString('Sandstorm.MxGraph:Diagram'),
+                nodeTypes: $diagramNodeTypeName,
                 propertyValue: $propertyConstraint
             ),
         );
 
         foreach ($possibleResults as $node) {
-            assert($node instanceof Node);
             if ($contextNode->equals($node)) {
                 // we skip ourselves
                 continue;
             }
 
-            // we still need to check for exact DiagramIdentifier, because nodeSearchService finds across **ALL** properties
-            // and with wildcards.
-            if ($node->getProperty('diagramIdentifier') === $diagramIdentifier) {
-                $results[] = $node;
-            }
+            $results[] = $node;
         }
 
         return $results;
-    }
-
-    public function findMostRecentDiagramWithIdentifierExcludingOwn(string $diagramIdentifier, Node $contextNode): ?Node
-    {
-        $relatedDiagramNodes = $this->findRelatedDiagramsWithIdentifierExcludingOwn($diagramIdentifier, $contextNode);
-
-        uasort($relatedDiagramNodes, function (Node $nodeA, Node $nodeB) {
-            $timestampA = $nodeA->timestamps->lastModified ?? $nodeA->timestamps->created;
-            $timestampB = $nodeB->timestamps->lastModified ?? $nodeA->timestamps->created;
-
-            return $timestampB <=> $timestampA;
-        });
-
-        if (count($relatedDiagramNodes) > 0) {
-            // the 1st element is the one with the latest modification time.
-            return reset($relatedDiagramNodes);
-        }
-        return null;
     }
 }

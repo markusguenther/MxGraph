@@ -3,8 +3,10 @@ namespace Sandstorm\MxGraph\Controller;
 
 use Neos\ContentRepository\Core\Feature\NodeModification\Command\SetNodeProperties;
 use Neos\ContentRepository\Core\Feature\NodeModification\Dto\PropertyValuesToWrite;
+use Neos\ContentRepository\Core\Feature\Security\Exception\AccessDenied;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Node;
 use Neos\ContentRepository\Core\SharedModel\Node\NodeAddress;
+use Neos\ContentRepository\Core\SharedModel\Node\PropertyName;
 use Neos\ContentRepositoryRegistry\ContentRepositoryRegistry;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
@@ -102,6 +104,7 @@ class DiagramEditorController extends ActionController
 
     /**
      * @Flow\SkipCsrfProtection
+     * @throws AccessDenied
      */
     public function saveAction(Node $node, string $xml, string $svg): string
     {
@@ -109,42 +112,17 @@ class DiagramEditorController extends ActionController
 
         if (empty($svg)) {
             // XML without SVG -> autosaved - not supported right now.
-            $contentRepository->handle(SetNodeProperties::create(
-                $node->workspaceName,
-                $node->aggregateId,
-                $node->originDimensionSpacePoint,
-                PropertyValuesToWrite::fromArray(['diagramSourceAutosaved' => $xml]),
-            ));
-            // TODO: If not supported, what does the code above do?
-            throw new \RuntimeException("TODO - autosave not supported right now.");
-        }
-
-        $propertyValuesToWrite = PropertyValuesToWrite::fromArray([
-            'diagramSource' => $xml,
-            'diagramSvgText' => $svg,
-        ]);
-
-        $diagramIdentifier = $node->getProperty('diagramIdentifier');
-        if (!empty($diagramIdentifier)) {
-            // update related diagrams
-            foreach ($this->diagramIdentifierSearchService->findRelatedDiagramsWithIdentifierExcludingOwn($diagramIdentifier, $node) as $relatedDiagramNode) {
-                $contentRepository->handle(SetNodeProperties::create(
-                    $relatedDiagramNode->workspaceName,
-                    $relatedDiagramNode->aggregateId,
-                    $relatedDiagramNode->originDimensionSpacePoint,
-                    $propertyValuesToWrite->merge(PropertyValuesToWrite::fromArray([
-                        'diagramSource' => $xml,
-                        'diagramSvgText' => $svg,
-                    ])
-                )));
-            }
+            throw new \RuntimeException("DiagramEditorController::saveAction: autosave not supported right now.");
         }
 
         $contentRepository->handle(SetNodeProperties::create(
             $node->workspaceName,
             $node->aggregateId,
             $node->originDimensionSpacePoint,
-            $propertyValuesToWrite,
+            PropertyValuesToWrite::fromArray([
+                'diagramSource' => $xml,
+                'diagramSvgText' => $svg,
+            ]),
         ));
 
         return 'OK';

@@ -16,19 +16,24 @@ use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\FindDescendantNod
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\OrderingDirection;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\OrderingField;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\Ordering\TimestampField;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\AndCriteria;
+use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\NegateCriteria;
 use Neos\ContentRepository\Core\Projection\ContentGraph\Filter\PropertyValue\Criteria\PropertyValueEquals;
 use Neos\ContentRepository\Core\Projection\ContentGraph\VisibilityConstraints;
-use Neos\ContentRepository\Core\SharedModel\ContentRepository\ContentRepositoryId;
 use Neos\ContentRepository\Core\SharedModel\Node\PropertyName;
 use Neos\Neos\Domain\Service\NodeTypeNameFactory;
 use Psr\Log\LoggerInterface;
 
-class DiagramCommandHook implements CommandHookInterface {
+final class DiagramCommandHook implements CommandHookInterface {
+    private const DIAGRAM_NODE_TYPE_NAME = 'Sandstorm.MxGraph:Diagram';
+    private const DIAGRAM_IDENTIFIER_PROPERTY_NAME = 'diagramIdentifier';
+    private const DIAGRAM_SVG_TEXT_PROPERTY_NAME = 'diagramSvgText';
+    private const DIAGRAM_SOURCE_PROPERTY_NAME = 'diagramSource';
+
     public function __construct(
-        protected ContentRepositoryId $contentRepositoryId,
-        protected ContentGraphReadModelInterface $contentGraphReadModel,
-        protected LoggerInterface $logger,
-    )
+        private readonly ContentGraphReadModelInterface $contentGraphReadModel,
+        private readonly LoggerInterface                $logger,
+        )
     {
     }
 
@@ -42,7 +47,10 @@ class DiagramCommandHook implements CommandHookInterface {
         if ($command instanceof SetNodeProperties) {
             $subgraph = $this->contentGraphReadModel
                 ->getContentGraph($command->workspaceName)
-                ->getSubgraph($command->originDimensionSpacePoint->toDimensionSpacePoint(), VisibilityConstraints::default());
+                ->getSubgraph(
+                    $command->originDimensionSpacePoint->toDimensionSpacePoint(),
+                    VisibilityConstraints::default()
+                );
 
             $sourceNode = $subgraph->findNodeById($command->nodeAggregateId);
 
@@ -50,19 +58,19 @@ class DiagramCommandHook implements CommandHookInterface {
                 return Commands::createEmpty();
             }
 
-            if (!$sourceNode->nodeTypeName->equals(NodeTypeName::fromString('Sandstorm.MxGraph:Diagram'))) {
+            if (!$sourceNode->nodeTypeName->equals(NodeTypeName::fromString(self::DIAGRAM_NODE_TYPE_NAME))) {
                 return Commands::createEmpty();
             }
 
             // diagramIdentifier was updated -> copy over the latest changes into this node
-            if (array_key_exists('diagramIdentifier', $command->propertyValues->values)) {
+            if (array_key_exists(self::DIAGRAM_IDENTIFIER_PROPERTY_NAME, $command->propertyValues->values)) {
                 return $this->handleDiagramIdentifierChange($command, $subgraph);
             }
 
             // diagram data was updated -> update all diagrams with the same diagramIdentifier
             if (
-                array_key_exists('diagramSvgText', $command->propertyValues->values)
-                && array_key_exists('diagramSource', $command->propertyValues->values)
+                array_key_exists(self::DIAGRAM_SVG_TEXT_PROPERTY_NAME, $command->propertyValues->values)
+                && array_key_exists(self::DIAGRAM_SOURCE_PROPERTY_NAME, $command->propertyValues->values)
             ) {
                 return $this->handleDiagramDataChange($command, $subgraph);
             }
@@ -73,8 +81,9 @@ class DiagramCommandHook implements CommandHookInterface {
 
     private function handleDiagramIdentifierChange(SetNodeProperties $command, ContentSubgraphInterface $subgraph): Commands
     {
-        $diagramIdentifier = $command->propertyValues->values['diagramIdentifier'];
-        $this->logger->info("DiagramCommandHook::handleDiagramIdentifierChange for '$diagramIdentifier'");
+        $diagramIdentifier = $command->propertyValues->values[self::DIAGRAM_IDENTIFIER_PROPERTY_NAME];
+
+        $this->logger->debug("DiagramCommandHook::handleDiagramIdentifierChange: Diagram node '$command->nodeAggregateId' changed property nodeIdentifier to '$diagramIdentifier'");
 
         // ignore empty diagramIdentifier
         if ($diagramIdentifier === null || $diagramIdentifier === '') {
@@ -82,6 +91,7 @@ class DiagramCommandHook implements CommandHookInterface {
         }
 
         // get diagram with the latest changes
+
         $siteNode = $subgraph->findClosestNode(
             $command->nodeAggregateId,
             FindClosestNodeFilter::create(nodeTypes: NodeTypeNameFactory::NAME_SITE)
@@ -90,8 +100,10 @@ class DiagramCommandHook implements CommandHookInterface {
         $diagramNodesOrdered = $subgraph->findDescendantNodes(
             $siteNode->aggregateId,
             FindDescendantNodesFilter::create(
-                nodeTypes: 'Sandstorm.MxGraph:Diagram',
-                propertyValue: PropertyValueEquals::create(PropertyName::fromString('diagramIdentifier'), $diagramIdentifier, true),
+                nodeTypes: self::DIAGRAM_NODE_TYPE_NAME,
+                propertyValue: PropertyValueEquals::create(
+                    PropertyName::fromString(self::DIAGRAM_IDENTIFIER_PROPERTY_NAME), $diagramIdentifier, true
+                ),
                 ordering: [
                     OrderingField::byTimestampField(TimestampField::LAST_MODIFIED, OrderingDirection::DESCENDING),
                     OrderingField::byTimestampField(TimestampField::CREATED, OrderingDirection::DESCENDING),
@@ -99,20 +111,29 @@ class DiagramCommandHook implements CommandHookInterface {
             ),
         );
 
-        $diagramWithLatestChange = $diagramNodesOrdered->first();
+        $diagramWithLatestChange = null;
+
+        // get first node that is not the node the command executes on
+        foreach ($diagramNodesOrdered as $node) {
+            if ($node->aggregateId->equals($command->nodeAggregateId)) {
+                continue;
+            }
+
+            $diagramWithLatestChange = $node;
+            break;
+        }
 
         if ($diagramWithLatestChange === null) {
             return Commands::createEmpty();
         }
 
-        // TODO: does this trigger a new hook with that ends in an infinitive loop?
         return Commands::create(SetNodeProperties::create(
             workspaceName: $command->workspaceName,
             nodeAggregateId: $command->nodeAggregateId,
             originDimensionSpacePoint: $command->originDimensionSpacePoint,
             propertyValues: PropertyValuesToWrite::fromArray([
-                'diagramSvgText' => $diagramWithLatestChange->getProperty('diagramSvgText'),
-                'diagramSource' => $diagramWithLatestChange->getProperty('diagramSource'),
+                self::DIAGRAM_SVG_TEXT_PROPERTY_NAME => $diagramWithLatestChange->getProperty(self::DIAGRAM_SVG_TEXT_PROPERTY_NAME),
+                self::DIAGRAM_SOURCE_PROPERTY_NAME => $diagramWithLatestChange->getProperty(self::DIAGRAM_SOURCE_PROPERTY_NAME),
             ])
         ));
     }
@@ -126,23 +147,44 @@ class DiagramCommandHook implements CommandHookInterface {
         );
 
         $sourceNode = $subgraph->findNodeById($command->nodeAggregateId);
-        $diagramIdentifier = $sourceNode->getProperty('diagramIdentifier');
+        $diagramIdentifier = $sourceNode->getProperty(self::DIAGRAM_IDENTIFIER_PROPERTY_NAME);
 
-        $this->logger->info("DiagramCommandHook::handleDiagramDataChange for '$diagramIdentifier");
+        $this->logger->debug("DiagramCommandHook::handleDiagramDataChange: Diagram node '$command->nodeAggregateId' with diagramIdentifier '$diagramIdentifier' updated it's data");
 
         $nodesWithDiagramIdentifier = $subgraph->findDescendantNodes(
             $siteNode->aggregateId,
             FindDescendantNodesFilter::create(
-                nodeTypes: 'Sandstorm.MxGraph:Diagram',
-                propertyValue: PropertyValueEquals::create(
-                    PropertyName::fromString('diagramIdentifier'),
-                    $diagramIdentifier,
-                    true
+                nodeTypes: self::DIAGRAM_NODE_TYPE_NAME,
+                propertyValue: AndCriteria::create(
+                    PropertyValueEquals::create(
+                        PropertyName::fromString(self::DIAGRAM_IDENTIFIER_PROPERTY_NAME),
+                        $diagramIdentifier,
+                        true
+                    ),
+                    NegateCriteria::create(
+                        AndCriteria::create(
+                            PropertyValueEquals::create(
+                                PropertyName::fromString(self::DIAGRAM_SVG_TEXT_PROPERTY_NAME),
+                                $sourceNode->getProperty(self::DIAGRAM_SVG_TEXT_PROPERTY_NAME),
+                                true
+                            ),
+                            PropertyValueEquals::create(
+                                PropertyName::fromString(self::DIAGRAM_SOURCE_PROPERTY_NAME),
+                                $sourceNode->getProperty(self::DIAGRAM_SOURCE_PROPERTY_NAME),
+                                true
+                            ),
+                        ),
+                    )
                 ),
             )
         );
 
         $commands = Commands::createEmpty();
+
+        $propertiesToCopyFromSourceNode = PropertyValuesToWrite::fromArray([
+            self::DIAGRAM_SVG_TEXT_PROPERTY_NAME => $sourceNode->getProperty(self::DIAGRAM_SVG_TEXT_PROPERTY_NAME),
+            self::DIAGRAM_SOURCE_PROPERTY_NAME => $sourceNode->getProperty(self::DIAGRAM_SOURCE_PROPERTY_NAME),
+        ]);
 
         foreach ($nodesWithDiagramIdentifier as $diagramNode) {
             if ($diagramNode->aggregateId->equals($command->nodeAggregateId)) {
@@ -150,15 +192,13 @@ class DiagramCommandHook implements CommandHookInterface {
                 continue;
             }
 
-            // TODO: does this create a infinite loop because we handle a new change?
-            $commands->append(SetNodeProperties::create(
+            $this->logger->debug("DiagramCommandHook::handleDiagramDataChange: -> Also trigger data update for related diagram node: '$diagramNode->aggregateId");
+
+            $commands = $commands->append(SetNodeProperties::create(
                 workspaceName: $diagramNode->workspaceName,
                 nodeAggregateId: $diagramNode->aggregateId,
                 originDimensionSpacePoint: $diagramNode->originDimensionSpacePoint,
-                propertyValues: PropertyValuesToWrite::fromArray([
-                    'diagramSvgText' => $sourceNode->getProperty('diagramSvgText'),
-                    'diagramSource' => $sourceNode->getProperty('diagramSource'),
-                ])
+                propertyValues: $propertiesToCopyFromSourceNode,
             ));
         }
 

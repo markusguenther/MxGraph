@@ -16,7 +16,6 @@ class DiagramCommandHookFactory implements CommandHookFactoryInterface
     public function build(CommandHooksFactoryDependencies $commandHooksFactoryDependencies): CommandHookInterface
     {
         return new DiagramCommandHook(
-            $commandHooksFactoryDependencies->contentRepositoryId,
             $commandHooksFactoryDependencies->contentGraphReadModel,
             $this->logger,
         );
