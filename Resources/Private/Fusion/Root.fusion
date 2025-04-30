@@ -6,6 +6,7 @@ prototype(Sandstorm.MxGraph:Diagram) < prototype(Neos.Neos:ContentComponent) {
         renderer = ${q(node).property('diagramSvgText')}
       }
 
+      // in backend show a dummy image when no diagram is set
       inBackend {
         condition = ${renderingMode.isEdit}
         renderer = afx`
@@ -15,6 +16,7 @@ prototype(Sandstorm.MxGraph:Diagram) < prototype(Neos.Neos:ContentComponent) {
         `
       }
 
+      // in frontend render nothing
       default {
         condition = ${true}
         renderer = ''
@@ -43,7 +45,6 @@ prototype(Sandstorm.MxGraph:DiagramComponent) < prototype(Neos.Fusion:Component)
   title = ''
   link = ''
   alternativeText = ''
-  # TODO: alignment is not implemented yet
   alignment = ''
   caption = ''
   inEditMode = false
@@ -64,10 +65,33 @@ prototype(Sandstorm.MxGraph:DiagramComponent) < prototype(Neos.Fusion:Component)
         renderer = ${props.diagram}
       }
     }
+
+    // map image alignment to flex values
+    flexAlignment = Neos.Fusion:Case {
+      left {
+        condition = ${props.alignment == 'left'}
+        renderer = 'start'
+      }
+
+      center {
+        condition = ${props.alignment == 'center'}
+        renderer = 'center'
+      }
+
+      right {
+        condition = ${props.alignment == 'right'}
+        renderer = 'end'
+      }
+
+      default {
+        condition = ${true}
+        renderer = ''
+      }
+    }
   }
 
   renderer = afx`
-    <figure title={props.title} aria-label={props.alternativeText}>
+    <figure style={'display: flex; flex-direction: column; align-items: ' + private.flexAlignment} title={props.title} aria-label={props.alternativeText}>
       {private.diagramWrappedWithLink}
       <figcaption @if.hasCaption={props.caption != ''}>{props.caption}</figcaption>
     </figure>
