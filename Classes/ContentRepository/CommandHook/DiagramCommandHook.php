@@ -14,8 +14,8 @@ use Sandstorm\MxGraph\MxGraphConstants;
 
 final class DiagramCommandHook implements CommandHookInterface {
     public function __construct(
-        private readonly ContentGraphReadModelInterface $contentGraphReadModel,
-        private readonly DiagramContentRepositoryService $diagramContentRepositoryService,
+        protected ContentGraphReadModelInterface $contentGraphReadModel,
+        protected DiagramContentRepositoryService $diagramContentRepositoryService,
     )
     {
     }
