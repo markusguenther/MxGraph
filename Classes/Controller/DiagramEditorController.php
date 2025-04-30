@@ -102,7 +102,7 @@ class DiagramEditorController extends ActionController
             throw new \RuntimeException("DiagramEditorController::saveAction: autosave not supported right now.");
         }
 
-        $this->diagramContentRepositoryService->applyDataToDiagramNodeAndToRelatedNodes($node, $xml, $svg);
+        $this->diagramContentRepositoryService->applyDataToDiagramNodeAndRelatedNodes($node, $xml, $svg);
 
         return 'OK';
     }

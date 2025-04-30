@@ -92,7 +92,7 @@ class DiagramContentRepositoryService
     /**
      * @throws AccessDenied
      */
-    public function applyDataToDiagramNodeAndToRelatedNodes(Node $sourceNode, string $xml, string $svg): void
+    public function applyDataToDiagramNodeAndRelatedNodes(Node $sourceNode, string $xml, string $svg): void
     {
         $contentRepository = $this->contentRepositoryRegistry->get($sourceNode->contentRepositoryId);
         $subgraph = $contentRepository->getContentSubgraph(
@@ -129,6 +129,7 @@ class DiagramContentRepositoryService
 
         foreach ($nodesWithDiagramIdentifier as $diagramNode) {
             $diagramId = $diagramNode->getProperty($diagramIdentifierPropertyName);
+
             $this->logger->debug("DiagramContentRepositoryService::applyDataToDiagramNodeAndToRelatedNodes -> trigger data update for diagram node: '$diagramNode->aggregateId' with diagram identifier '$diagramId'");
 
             $contentRepository->handle(SetNodeProperties::create(
@@ -153,8 +154,11 @@ class DiagramContentRepositoryService
             return;
         }
 
+        $this->logger->debug("DiagramCommandHook::handleDiagramIdentifierChange: Found latest Diagram node '$diagramNodeWithLatestChange->aggregateId' and applying it's data to node '$node->aggregateId'");
+
         $diagramSourcePropertyName = MxGraphConstants::getDiagramSourcePropertyName();
         $diagramSvgTextPropertyName = MxGraphConstants::getDiagramSvgTextPropertyName();
+
         $contentRepository = $this->contentRepositoryRegistry->get($node->contentRepositoryId);
 
         $contentRepository->handle(SetNodeProperties::create(

@@ -38,10 +38,10 @@ final class DiagramCommandHook implements CommandHookInterface {
 
             if ($sourceNode !== null && $sourceNode->nodeTypeName->equals(MxGraphConstants::getNodeTypeName())) {
                 // TODO: A "PropertyValuesToWrite->hasProperty(PropertyName $propertyName): bool" API would be nice
-                // TODO: A "PropertyValuesToWrite->getProperty(PropertyName $propertyName): mixed" API would be nice
                 if (array_key_exists(MxGraphConstants::getDiagramIdentifierPropertyName()->value, $command->propertyValues->values)) {
                     // diagramIdentifier was updated -> copy over the latest changes into this node
                     $this->diagramContentRepositoryService->applyLastestDiagramDataOfDiagramIdentifierToNode(
+                        // TODO: A "PropertyValuesToWrite->getProperty(PropertyName $propertyName): mixed" API would be nice
                         diagramIdentifier: $command->propertyValues->values[MxGraphConstants::getDiagramIdentifierPropertyName()->value],
                         node: $sourceNode,
                     );

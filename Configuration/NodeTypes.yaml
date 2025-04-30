@@ -11,7 +11,7 @@
   options:
     nodeCreationHandlers:
       mxGraph:
-        factoryClassName: Sandstorm\MxGraph\Factory\DiagramCreationHandlerFactory
+        factoryClassName: Sandstorm\MxGraph\ContentRepository\CreationHandler\DiagramCreationHandlerFactory
   ui:
     label: Diagram
     icon: icon-picture
